@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ajedrez de Nacho</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101827;color:#f8fafc;font-family:Arial,sans-serif;min-height:100vh;display:flex;justify-content:center;align-items:center;padding:18px}
+main{width:min(100%,520px);text-align:center}.panel{background:#1e293b;border:1px solid #334155;border-radius:18px;padding:18px;box-shadow:0 12px 35px #0005}
+h1{margin:0 0 8px;font-size:28px}.sub{color:#cbd5e1;margin:0 0 16px}
+#status{font-weight:bold;margin:12px 0;padding:10px;background:#0f172a;border-radius:10px}
+#board{display:grid;grid-template-columns:repeat(8,1fr);width:100%;aspect-ratio:1;border:5px solid #0f172a;border-radius:8px;overflow:hidden}
+.sq{border:0;padding:0;margin:0;display:flex;align-items:center;justify-content:center;position:relative;font-family:"Segoe UI Symbol","DejaVu Sans",serif;font-size:clamp(25px,8vw,48px);cursor:pointer;aspect-ratio:1}
+.light{background:#f0d9b5}.dark{background:#b58863}.selected{outline:4px solid #facc15;outline-offset:-4px}.target:after{content:"";width:22%;height:22%;border-radius:50%;background:#166534aa;position:absolute}.capture:after{content:"";position:absolute;inset:4px;border:4px solid #16653499;border-radius:50%}
+.white{color:#fffdf4;text-shadow:1px 1px 2px #222,-1px -1px 1px #222}.black{color:#171717;text-shadow:0 1px 1px #fff}
+.controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+button.action{background:#2563eb;color:white;border:0;border-radius:10px;padding:11px 16px;font-weight:bold;font-size:15px;cursor:pointer}button.action:disabled{opacity:.4;cursor:default}
+#message{min-height:22px;color:#cbd5e1;margin:12px 0 0;font-size:14px}
+footer{font-size:12px;color:#94a3b8;margin-top:12px}
+</style>
+</head>
+<body>
+<main><div class="panel">
+<h1>♟️ Ajedrez</h1><p class="sub">Jugá contra otra persona en el mismo dispositivo.</p>
+<div id="status">Turno de blancas</div>
+<div id="board" aria-label="Tablero de ajedrez"></div>
+<div class="controls">
+<button class="action" id="undo">↶ Deshacer</button>
+<button class="action" id="restart">Nueva partida</button>
+</div>
+<p id="message">Elegí una pieza y luego una casilla marcada.</p>
+<footer>Reglas completas: movimientos legales, jaque, enroque y promoción.</footer>
+</div></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script>
+const game = new Chess();
+const board = document.getElementById('board');
+const statusEl = document.getElementById('status');
+const message = document.getElementById('message');
+const undoBtn = document.getElementById('undo');
+const glyph = {wk:'♔',wq:'♕',wr:'♖',wb:'♗',wn:'♘',wp:'♙',bk:'♚',bq:'♛',br:'♜',bb:'♝',bn:'♞',bp:'♟︎'};
+let selected = null, legal = [];
+function render(){
+  board.innerHTML='';
+  const files='abcdefgh';
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+    const sq=files[c]+(8-r), piece=game.get(sq);
+    const el=document.createElement('button');
+    el.className='sq '+((r+c)%2?'dark':'light');
+    el.setAttribute('aria-label',sq);
+    if(selected===sq) el.classList.add('selected');
+    if(legal.some(m=>m.to===sq)) el.classList.add(piece?'capture':'target');
+    if(piece){el.textContent=glyph[piece.color+piece.type];el.classList.add(piece.color==='w'?'white':'black')}
+    el.addEventListener('click',()=>tap(sq));
+    board.appendChild(el);
+  }
+  const turn=game.turn()==='w'?'Blancas':'Negras';
+  if(game.in_checkmate()) statusEl.textContent='¡Jaque mate! Ganan '+(game.turn()==='w'?'las negras':'las blancas')+'.';
+  else if(game.in_draw()) statusEl.textContent='Empate.';
+  else statusEl.textContent='Turno de '+turn+(game.in_check()?' — ¡JAQUE!':'');
+  undoBtn.disabled=game.history().length===0;
+}
+function tap(sq){
+  if(game.game_over()) return;
+  const p=game.get(sq);
+  if(selected && legal.some(m=>m.to===sq)){
+    let move={from:selected,to:sq,promotion:'q'};
+    const result=game.move(move);
+    if(result){selected=null;legal=[];message.textContent='Movimiento: '+result.san;render();return}
+  }
+  if(p && p.color===game.turn()){
+    selected=sq;legal=game.moves({square:sq,verbose:true});
+    message.textContent=legal.length?'Elegí una de las casillas marcadas.':'Esa pieza no tiene movimientos disponibles.';
+  } else {
+    selected=null;legal=[];message.textContent='Elegí una pieza de tu color.';
+  }
+  render();
+}
+document.getElementById('restart').addEventListener('click',()=>{game.reset();selected=null;legal=[];message.textContent='¡Nueva partida! Empiezan las blancas.';render()});
+undoBtn.addEventListener('click',()=>{game.undo();selected=null;legal=[];message.textContent='Último movimiento deshecho.';render()});
+render();
+</script>
+</body>
+</html>
